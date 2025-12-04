@@ -12,7 +12,7 @@ def ingestion(filename='data/market_data_ml.csv'):
         processed_df = prepare_features(group.copy())
         processed.append(processed_df)
     final_df = pd.concat(processed)
-    scaled = ['ticker', 'open', 'high', 'low', 'close', 'volume', 'Target_Class']
+    scaled = ['ticker', 'open', 'high', 'low', 'close', 'volume', 'Target_Class', 'direction']
     feature_cols = [col for col in final_df.columns if col not in scaled]
 
     scaler = StandardScaler()
@@ -27,20 +27,20 @@ def prepare_features(df:pd.DataFrame):
     df['Log_Return'] = np.log(df['close']/df['close'].shift(1))
 
     #Lag Features
-    df['Lag1_Return'] = df['Daily_Return'].shift(1)
-    df['Lag3_Return'] = df['Daily_Return'].shift(3)
-    df['Lag5_Return'] = df['Daily_Return'].shift(5)
+    df['return_1d'] = df['Daily_Return'].shift(1)
+    df['return_3d'] = df['Daily_Return'].shift(3)
+    df['return_5d'] = df['Daily_Return'].shift(5)
 
     #Technical Indicators
-    df['SMA10'] = df['close'].rolling(10).mean()
+    df['sma_5'] = df['close'].rolling(5).mean()
+    df['sma_10'] = df['close'].rolling(10).mean()
     
     macd = MACD(close=df['close'], window_fast=12, window_slow=26, window_sign=9)    
-    df['MACD'] = macd.macd()
-    df['MACD_Signal'] = macd.macd_signal()
-
+    df['macd'] = macd.macd()
+    df['rsi_14'] = RSIIndicator(close=df['close'], window=14).rsi()
     # Labeling (Classification)
-    df['Next_Day_Return'] = df['close'].shift(-1)
-    df['Target_Class'] = (df['Next_Day_Return'] > 0).astype(int)
+    df['Next_Day_Return'] = df['Daily_Return'].shift(-1)
+    df['direction'] = (df['Next_Day_Return'] > 0).astype(int)
     df.drop(columns=['Next_Day_Return'], inplace=True)
     
     #Remove all NaN values
@@ -53,3 +53,6 @@ def get_ticker():
     df = pd.read_csv('data/tickers-1.csv')
     return df['symbol'].to_list()
 
+if __name__ == '__main__':
+    data = ingestion()
+    print(data['direction'].value_counts())
